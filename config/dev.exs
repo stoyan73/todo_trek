@@ -4,7 +4,7 @@ import Config
 config :todo_trek, TodoTrek.Repo,
   username: "postgres",
   password: "postgres",
-  hostname: "localhost",
+  hostname: "172.20.0.2",
   database: "todo_trek_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
