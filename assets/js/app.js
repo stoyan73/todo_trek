@@ -21,9 +21,89 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
+import Sortable from "../vendor/sortable"
+import flatpickr from "../vendor/flatpickr"
+
+let Hooks = {}
+
+Hooks.LocalTime = {
+  mounted(){ this.updated() },
+  updated() {
+    let dt = new Date(this.el.textContent)
+    let options = {hour: "2-digit", minute: "2-digit", hour12: true, timeZoneName: "short"}
+    this.el.textContent = `${dt.toLocaleString('en-US', options)}`
+    this.el.classList.remove("invisible")
+  }
+}
+
+Hooks.Sortable = {
+  mounted(){
+    let group = this.el.dataset.group
+    let isDragging = false
+    this.el.addEventListener("focusout", e => isDragging && e.stopImmediatePropagation())
+    let sorter = new Sortable(this.el, {
+      group: group ? {name: group, pull: true, put: true} : undefined,
+      animation: 150,
+      dragClass: "drag-item",
+      ghostClass: "drag-ghost",
+      onStart: e => isDragging = true, // prevent phx-blur from firing while dragging
+      onEnd: e => {
+        isDragging = false
+        let params = {old: e.oldIndex, new: e.newIndex, to: e.to.dataset, ...e.item.dataset}
+        this.pushEventTo(this.el, this.el.dataset["drop"] || "reposition", params)
+      }
+    })
+  }
+}
+
+Hooks.SortableInputsFor = {
+  mounted(){
+    let group = this.el.dataset.group
+    let sorter = new Sortable(this.el, {
+      group: group ? {name: group, pull: true, put: true} : undefined,
+      animation: 150,
+      dragClass: "drag-item",
+      ghostClass: "drag-ghost",
+      handle: "[data-handle]",
+      forceFallback: true,
+      onEnd: e => {
+        this.el.closest("form").querySelector("input").dispatchEvent(new Event("input", {bubbles: true}))
+      }
+    })
+  }
+}
+
+Hooks.Calendar = {
+  mounted() {
+    this.pickr = flatpickr(this.el, {
+      inline: true,
+      mode: "range",
+      showMonths: 2,
+      onChange: (selectedDates) => {
+        if (selectedDates.length != 2) return;
+        this.pushEvent("dates-picked", selectedDates)
+      }
+    })
+
+    this.handleEvent("add-unavailable-dates", (dates) => {
+      this.pickr.set("disable", [dates, ...this.pickr.config.disable])
+    })
+
+    this.pushEvent("unavailable-dates", {}, (reply, ref) => {
+      this.pickr.set("disable", reply.dates)
+    })
+
+  },
+
+  destroyed() {
+    this.pickr.destroy()
+  }
+}
+
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken}})
+// add Hooks in LiveSocket!!
+let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken}, hooks: Hooks})
 
 // Show progress bar on live navigation and form submits
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
