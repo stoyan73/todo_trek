@@ -9,3 +9,10 @@
 #
 # We recommend using the bang functions (`insert!`, `update!`
 # and so on) as they will fail if something goes wrong.
+alias TodoTrek.Accounts
+
+{:ok, user} =
+  Accounts.register_user(%{
+    email: "user@abv.bg",
+    password: "passw@rd1234"
+  })
